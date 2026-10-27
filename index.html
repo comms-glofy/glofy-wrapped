@@ -455,15 +455,27 @@ function drawPhotoFrame(c,x,y,s,k,a){
 
 /* ---------- card ---------- */
 var ROWY=[1234.5,1415.1,1595.8];
+function truncLines(c,lines,mx,size,wL,wB){
+  if(lines.length<=mx)return lines;
+  var sp=lines.sp;lines=lines.slice(0,mx);var L=lines[mx-1],X=L.ws[L.ws.length-1];
+  c.font=F(X.b?wB:wL,size);X.t=X.t.replace(/[.,;:¡!¿?]+$/,'')+'…';X.ww=c.measureText(X.t).width;
+  L.w=L.ws.reduce(function(a,x){return a+x.ww},0)+sp*(L.ws.length-1);lines.sp=sp;return lines;
+}
+function fitStat(c,text,w){
+  var size=22.5,lines,lh,maxH=168;
+  for(;;){lines=layoutRich(c,text,w,size,400,900,false,true);lh=size*1.0356;if(lines.length*lh<=maxH||size<=15)break;size-=1}
+  lines=truncLines(c,lines,Math.max(1,Math.floor(maxH/lh)),size,400,900);
+  return {lines:lines,size:size,lh:lh};
+}
 function drawStats(c,p){
   var n=state.stats.length,rows=Math.ceil(n/2),shift=rows<3?90:0;
   state.stats.forEach(function(s,i){
     var col=i%2,row=(i/2)|0,a0=.5+i*.06,a=seg(p,a0,a0+.16);if(a<=0)return;
     var cy=ROWY[row]+shift+((row===0&&col)?-7.4:0),size=130,icx=(col?581.7:102.7)+size/2,k=easeBack(a);
     c.save();c.globalAlpha*=ease(Math.min(1,a*2.2));c.translate(icx,cy);c.scale(k,k);c.translate(-icx,-cy);drawIcon(c,s.icon,icx,cy,size);c.restore();
-    var tx=col?738.7:258.7,lines=layoutRich(c,statText(s,1),col?235:246,22.5,400,900,false,true),nl=lines.length,ta=ease(seg(p,a0+.04,a0+.2));
+    var tx=col?738.7:258.7,ft=fitStat(c,statText(s,1),col?235:246),lines=ft.lines,nl=lines.length,ta=ease(seg(p,a0+.04,a0+.2));
     if(ta>0){c.save();c.globalAlpha*=ta;c.translate((1-ta)*18,0);
-      lines.forEach(function(ln,li){drawLine(c,ln,tx,cy-(nl-1)*11.65+li*23.3,'left',22.5,400,900,ED,ED,lines.sp)});c.restore()}
+      lines.forEach(function(ln,li){drawLine(c,ln,tx,cy-(nl-1)*ft.lh/2+li*ft.lh,'left',ft.size,400,900,ED,ED,lines.sp)});c.restore()}
   });
 }
 function drawFooter(c,a){
@@ -527,17 +539,17 @@ function drawStatScene(c,s,lt,dur){
   c.save();c.translate(W/2,650+bob);c.rotate(Math.sin(lt*1.3)*.06-(1-k)*.8);c.scale(k,k);
   var g=c.createRadialGradient(0,0,10,0,0,320);g.addColorStop(0,'rgba(206,255,0,.20)');g.addColorStop(1,'rgba(206,255,0,0)');c.fillStyle=g;c.fillRect(-340,-340,680,680);
   drawIcon(c,s.icon,0,0,sz);c.restore();
-  var prog=s.count?ease(seg(lt,.5,1.6)):1,lines=layoutRich(c,statText(s,prog),900,58,400,900,false,true);
-  lines.forEach(function(ln,i){appear(c,ease(seg(lt,.45+i*.14,.95+i*.14)),36,function(){drawLine(c,ln,W/2,1190+i*78,'center',58,400,900,ED,C.accent,lines.sp)})});
+  var prog=s.count?ease(seg(lt,.5,1.6)):1,fs=58,lines,txt=statText(s,prog);for(;;){lines=layoutRich(c,txt,900,fs,400,900,false,true);if(lines.length<=4||fs<=40)break;fs-=2}lines=truncLines(c,lines,4,fs,400,900);var fl=fs*1.345;
+  lines.forEach(function(ln,i){appear(c,ease(seg(lt,.45+i*.14,.95+i*.14)),36,function(){drawLine(c,ln,W/2,1190+i*fl,'center',fs,400,900,ED,C.accent,lines.sp)})});
   c.restore();
 }
 function drawMsgScene(c,lt,dur){
   var out=1-seg(lt,dur-.3,dur);c.save();c.globalAlpha=out;
   appear(c,ease(seg(lt,0,.5)),20,function(){c.font=F(700,32);c.fillStyle=C.accent;c.textAlign='center';c.textBaseline='middle';setLS(c,'9px');c.fillText(T('msgKicker'),W/2+4,430);setLS(c,'0px')});
-  var lines=layoutRich(c,state.msg,860,56,300,300,true),n=lines.length,y0=930-(n-1)*44;
-  lines.forEach(function(ln,i){appear(c,ease(seg(lt,.5+i*.16,1.1+i*.16)),30,function(){drawLine(c,ln,W/2,y0+i*88,'center',56,300,300,C.fg,C.fg,lines.sp,true)})});
+  var ms=56,lines,n,lh;for(;;){lines=layoutRich(c,state.msg,ms<56?880:860,ms,300,300,true);n=lines.length;lh=ms*1.5714;if(n*lh<=860||ms<=28)break;ms-=2}var y0=960-(n-1)*lh/2;
+  lines.forEach(function(ln,i){appear(c,ease(seg(lt,.5+i*.16,1.1+i*.16)),30,function(){drawLine(c,ln,W/2,y0+i*lh,'center',ms,300,300,C.fg,C.fg,lines.sp,true)})});
   var la=ease(seg(lt,.9+n*.16,1.5+n*.16));
-  if(la>0){c.save();c.globalAlpha*=la;c.fillStyle='rgba(255,255,255,.85)';c.fillRect(W/2-60,y0+n*88-10,120,4);c.restore();drawLogoAt(c,W/2,y0+n*88+90,Math.min(CFG.logoW*1.3,420),la)}
+  if(la>0){c.save();c.globalAlpha*=la;c.fillStyle='rgba(255,255,255,.85)';c.fillRect(W/2-60,y0+n*lh-10,120,4);c.restore();drawLogoAt(c,W/2,y0+n*lh+90,Math.min(CFG.logoW*1.3,420),la)}
   c.restore();
 }
 
